@@ -52,7 +52,7 @@ func (b *GitSumBot) summaries(ctx context.Context, messages []string) (string, e
 	prompt := `Your role is to create details summary of code changes added to a codebase using the commit messages given by the user.
 	Starts your answer with the sentence: 'Based on the provided commit messages, here's the summary of changes:'
 	Follow your answer with a detailed summary of all the changes in a few sentences.
-	 Group the changes in one of these category: build ci,ci,docs,feat,fix,perf,refactor,revert,style,test.`
+	Finally show a list of the commit messages and their commit hash grouped in one of these category: build ci,ci,docs,feat,fix,perf,refactor,revert,style,test.`
 
 	resp, err := b.ai.CreateChatCompletion(
 		context.Background(),
