@@ -83,7 +83,7 @@ func (b *GitSumBot) getCommitMessages(ctx context.Context, owner, repo string, d
 	}
 
 	now := time.Now()
-	yesterday := now.Add(-time.Hour * 72)
+	yesterday := now.Add(-duration)
 	// todo: pagination
 	commits, _, err := b.gh.Repositories.ListCommits(ctx, owner, repo, &github.CommitsListOptions{
 		SHA:   *r.DefaultBranch,
