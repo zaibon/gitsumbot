@@ -83,8 +83,8 @@ func (b *GitSumBot) ChangeDigest(ctx context.Context, owner, name string, durati
 
 // summarize generate a paragraph explaining in a few sentence the changes made on the code based on the commit messages
 func (b *GitSumBot) summarize(ctx context.Context, messages []string) (string, error) {
-	prompt := `The commit message start with the type of change follow by the category on which the changes applied.
-
+	prompt := `Write summary of the code change using the commit message send by the user.
+	The commit message start with the type of change follow by the category on which the changes applied.
 	For example :
 	"feat(api): add new endpoint"
 	type: new feature
