@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/go-github/v42/github"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/sashabaranov/go-openai"
 	"golang.org/x/oauth2"
 )
@@ -17,6 +19,11 @@ const maxMsgSize = 500
 type GitSumBot struct {
 	gh *github.Client
 	ai *openai.Client
+}
+
+type ChangeDigest struct {
+	Summary     string
+	Categorized string
 }
 
 func New(githubToken, openAIToken string) *GitSumBot {
@@ -34,25 +41,54 @@ func New(githubToken, openAIToken string) *GitSumBot {
 
 // ChangeDigest gather the commit message of the repository identified by owner/name over duration period
 // and generate a summary of all the commit messages.
-func (b *GitSumBot) ChangeDigest(ctx context.Context, owner, name string, duration time.Duration) (string, error) {
+func (b *GitSumBot) ChangeDigest(ctx context.Context, owner, name string, duration time.Duration) (ChangeDigest, error) {
 	messages, err := b.getCommitMessages(ctx, owner, name, duration)
 	if err != nil {
-		return "", fmt.Errorf("error while fetching Github commit messages: %w", err)
+		return ChangeDigest{}, fmt.Errorf("error while fetching Github commit messages: %w", err)
 	}
 
-	summary, err := b.summaries(ctx, messages)
-	if err != nil {
-		return "", fmt.Errorf("error while generating summary: %w", err)
+	g, ctx := errgroup.WithContext(ctx)
+	var (
+		summary     string
+		categorized string
+	)
+
+	g.Go(func() error {
+		s, err := b.summarize(ctx, messages)
+		if err != nil {
+			return fmt.Errorf("error while generating summary: %w", err)
+		}
+		summary = s
+		return nil
+	})
+
+	g.Go(func() error {
+		c, err := b.dedupAndGroup(ctx, messages)
+		if err != nil {
+			return fmt.Errorf("error while categorizing messages: %w", err)
+		}
+		categorized = c
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return ChangeDigest{}, err
 	}
 
-	return summary, nil
+	return ChangeDigest{
+		Summary:     summary,
+		Categorized: categorized,
+	}, nil
 }
 
-func (b *GitSumBot) summaries(ctx context.Context, messages []string) (string, error) {
-	prompt := `Your role is to create details summary of code changes added to a codebase using the commit messages given by the user.
-	Starts your answer with the sentence: 'Based on the provided commit messages, here's the summary of changes:'
-	Follow your answer with a detailed summary of all the changes in a few sentences.
-	Finally show a list of the commit messages and their commit hash grouped in one of these category: build ci,ci,docs,feat,fix,perf,refactor,revert,style,test.`
+// summarize generate a paragraph explaining in a few sentence the changes made on the code based on the commit messages
+func (b *GitSumBot) summarize(ctx context.Context, messages []string) (string, error) {
+	prompt := `The commit message start with the type of change follow by the category on which the changes applied.
+
+	For example :
+	"feat(api): add new endpoint"
+	type: new feature
+	category: API`
 
 	resp, err := b.ai.CreateChatCompletion(
 		context.Background(),
@@ -65,6 +101,32 @@ func (b *GitSumBot) summaries(ctx context.Context, messages []string) (string, e
 			Messages: []openai.ChatCompletionMessage{
 				{Role: openai.ChatMessageRoleSystem, Content: prompt},
 				{Role: openai.ChatMessageRoleUser, Content: fmt.Sprintf("Here are the commit messages: \n %s", strings.Join(messages, "\n\n"))},
+			},
+		},
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
+// dedupAndGroup will generate a bullet point list of commit messages group by category
+func (b *GitSumBot) dedupAndGroup(ctx context.Context, messages []string) (string, error) {
+	prompt := `Group the relates commit messages into categories and print a list of the messages inside each category`
+
+	resp, err := b.ai.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Temperature:      0.1,
+			TopP:             1,
+			FrequencyPenalty: 0,
+			PresencePenalty:  0,
+			Model:            openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+				{Role: openai.ChatMessageRoleSystem, Content: prompt},
+				{Role: openai.ChatMessageRoleUser, Content: strings.Join(messages, "\n")},
 			},
 		},
 	)
