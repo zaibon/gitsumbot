@@ -1,6 +1,6 @@
 <!-- How about "GitSumBot"? It's a pun on "get some bot", which implies that the AI is helping you get a summary of the code changes you need. Plus, "Git" is a reference to the popular version control system used by developers. -->
 
-# GitSumBot
+# ![assets/logo.png](assets/logo.png) GitSumBot 
 
 GitSumBot is a Go program that generates a summary of changes made to a codebase using commit messages.
 
@@ -30,12 +30,13 @@ func main() {
     )
 
     bot := gitsumbot.New(githubAccessToken, openAIAccessToken)
-    summary, err := bot.ChangeDigest(ctx, githubOwner, githubRepo, time.Hour * 24 * 7)
+    changeDigest, err := bot.ChangeDigest(ctx, githubOwner, githubRepo, time.Hour * 24 * 7)
     if err != nil {
         log.Fatalf("error while generating summary: %v", err)
     }
 
-    fmt.Println(summary)
+    fmt.Println(changeDigest.Summary)
+    fmt.Println(changeDigest.Categorized)
 }
 ```
 
