@@ -4,8 +4,8 @@ go 1.20
 
 require (
 	github.com/google/go-github/v42 v42.0.0
-	github.com/sashabaranov/go-openai v1.5.2
-	github.com/stretchr/testify v1.2.2
+	github.com/sashabaranov/go-openai v1.5.7
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/oauth2 v0.6.0
 	golang.org/x/sync v0.1.0
 )
@@ -22,4 +22,5 @@ require (
 	golang.org/x/net v0.8.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
