@@ -1,0 +1,6 @@
+schemaVersion: v1
+
+# Enforce in what runner context the attestation must happen
+# If not specified, the attestation crafting process is allowed to run anywhere
+runner:
+  type: "GITHUB_ACTION"

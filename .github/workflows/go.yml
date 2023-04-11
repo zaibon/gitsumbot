@@ -8,20 +8,65 @@ on:
   pull_request:
 
 jobs:
-
   build:
+    env:
+      CHAINLOOP_VERSION: 0.8.95
+      CHAINLOOP_ROBOT_ACCOUNT: ${{ secrets.CHAINLOOP_ROBOT_ACCOUNT }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - name: Install Chainloop
+        run: |
+          curl -sfL https://docs.chainloop.dev/install.sh | bash -s -- --version v${{ env.CHAINLOOP_VERSION }}
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        check-latest: true
-        go-version: '1.20'
+      - uses: actions/checkout@v3
 
-    - name: Build
-      run: go build -v ./...
+      - name: Initialize Attestation
+        run: |
+          chainloop attestation init --contract-revision 1
 
-    - name: Test
-      run: go test -v ./...
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          check-latest: true
+          go-version: "1.20"
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v ./...
+
+      # - name: Add Attestation Artifacts
+      #   run: |
+      #     # Add binaries created by goreleaser
+      #     chainloop attestation add --name [binary-name] --value [binary-path]
+
+      #     # Created container image
+      #     chainloop attestation add --name control-plane-image --value ****.dkr.ecr.us-east-1.amazonaws.com/container-image:${{ github.ref_name }}
+
+      #     # This is just an example of adding a key/val material type
+      #     # Alternatively, GITHUB_SHA could have been added to the contract env variables allowList
+      #     chainloop attestation add --name build-ref --value ${GITHUB_SHA}
+
+      #     # Attach SBOM
+      #     chainloop attestation add --name skynet-sbom --value /tmp/skynet.cyclonedx.json
+
+      - name: Finish and Record Attestation
+        if: ${{ success() }}
+        run: |
+          chainloop attestation status --full
+          # Note that these commands are using CHAINLOOP_ROBOT_ACCOUNT env variable to authenticate
+          chainloop attestation push --key env://CHAINLOOP_SIGNING_KEY
+        env:
+          CHAINLOOP_SIGNING_KEY: ${{ secrets.COSIGN_KEY }}
+          CHAINLOOP_SIGNING_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+      - name: Mark attestation as failed
+        if: ${{ failure() }}
+        run: |
+          chainloop attestation reset
+
+      - name: Mark attestation as cancelled
+        if: ${{ cancelled() }}
+        run: |
+          chainloop attestation reset --trigger cancellation
