@@ -16,6 +16,8 @@ import (
 // truncate the commit message to this size
 const maxMsgSize = 500
 
+var ErrNoNewChanges = fmt.Errorf("no new changes in the repository")
+
 type GitSumBot struct {
 	gh *github.Client
 	ai *openai.Client
@@ -45,6 +47,10 @@ func (b *GitSumBot) ChangeDigest(ctx context.Context, owner, name string, durati
 	messages, err := b.getCommitMessages(ctx, owner, name, duration)
 	if err != nil {
 		return ChangeDigest{}, fmt.Errorf("error while fetching Github commit messages: %w", err)
+	}
+
+	if len(messages) == 0 {
+		return ChangeDigest{}, ErrNoNewChanges
 	}
 
 	g, ctx := errgroup.WithContext(ctx)

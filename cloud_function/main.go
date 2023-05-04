@@ -42,13 +42,24 @@ func Run(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	cd, err := bot.ChangeDigest(ctx, cfg.GithubOwner, cfg.GithubRepo, time.Hour*24)
-	if err != nil {
+	if err != nil && err != gitsumbot.ErrNoNewChanges {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	today := time.Now().Format("02-01-2006")
+
+	if err == gitsumbot.ErrNoNewChanges {
+		msg := fmt.Sprintf("No new changes in the repository %s/%s for the date %v", cfg.GithubOwner, cfg.GithubRepo, today)
+		if err := slackClient.SendChannel(ctx, cfg.SlackChannel, msg); err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	buf := &bytes.Buffer{}
 	fmt.Fprintf(buf, "Summary of the change in the repository %s/%s for the date %v\n\n", cfg.GithubOwner, cfg.GithubRepo, today)
