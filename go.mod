@@ -6,7 +6,7 @@ require (
 	github.com/google/go-github/v42 v42.0.0
 	github.com/sashabaranov/go-openai v1.9.1
 	golang.org/x/oauth2 v0.7.0
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.2.0
 )
 
 require (
