@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/google/go-github/v42 v42.0.0
-	github.com/sashabaranov/go-openai v1.11.2
+	github.com/sashabaranov/go-openai v1.12.0
 	golang.org/x/oauth2 v0.9.0
 	golang.org/x/sync v0.3.0
 )
