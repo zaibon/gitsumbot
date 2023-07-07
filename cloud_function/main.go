@@ -11,6 +11,7 @@ import (
 
 	"github.com/slack-go/slack"
 	"github.com/zaibon/gitsumbot"
+	"golang.org/x/exp/slices"
 )
 
 type cfg struct {
@@ -18,11 +19,12 @@ type cfg struct {
 	GithubRepo        string
 	GithubAccessToken string
 	OpenAIAccessToken string
+	GPTModelVersion   string
 	SlackAccessToken  string
 	SlackChannel      string
 }
 
-func cfgFromEnv() *cfg {
+func cfgFromEnv() (*cfg, error) {
 	c := &cfg{}
 	c.GithubOwner = os.Getenv("github-owner")
 	c.GithubRepo = os.Getenv("github-repo")
@@ -30,12 +32,24 @@ func cfgFromEnv() *cfg {
 	c.OpenAIAccessToken = os.Getenv("openai-token")
 	c.SlackAccessToken = os.Getenv("slack-token")
 	c.SlackChannel = os.Getenv("slack-channel")
-	return c
+
+	c.GPTModelVersion = os.Getenv("model-version")
+	if !slices.ContainsFunc(gitsumbot.ModelVersions, func(version gitsumbot.ModelVersion) bool {
+		return version == gitsumbot.ModelVersion(c.GPTModelVersion)
+	}) {
+		return nil, fmt.Errorf("model %s not supported", c.GPTModelVersion)
+	}
+
+	return c, nil
 }
 
 func Run(w http.ResponseWriter, r *http.Request) {
-	cfg := cfgFromEnv()
-	bot := gitsumbot.New(cfg.GithubAccessToken, cfg.OpenAIAccessToken)
+	cfg, err := cfgFromEnv()
+	if err != nil {
+		log.Fatalf("error while loading config: %v", err)
+	}
+
+	bot := gitsumbot.New(cfg.GithubAccessToken, cfg.OpenAIAccessToken, gitsumbot.ModelVersion(cfg.GPTModelVersion))
 	slackClient := slacker{
 		client: slack.New(cfg.SlackAccessToken),
 	}

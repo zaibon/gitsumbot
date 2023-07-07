@@ -27,9 +27,10 @@ func main() {
         githubRepo        ="gitsumbot"
         githubAccessToken = "..." // Github token with scope to read the repository you want to summarize
         openAIAccessToken = "..." // openAI API token
+        modelVersion      = gitsumbot.ModelVersionGPT4
     )
 
-    bot := gitsumbot.New(githubAccessToken, openAIAccessToken)
+    bot := gitsumbot.New(githubAccessToken, openAIAccessToken, modelVersion)
     changeDigest, err := bot.ChangeDigest(ctx, githubOwner, githubRepo, time.Hour * 24 * 7)
     if err != nil {
         log.Fatalf("error while generating summary: %v", err)
