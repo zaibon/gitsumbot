@@ -21,6 +21,8 @@ var ErrNoNewChanges = fmt.Errorf("no new changes in the repository")
 type GitSumBot struct {
 	gh *github.Client
 	ai *openai.Client
+
+	modelVersion ModelVersion
 }
 
 type ChangeDigest struct {
@@ -28,7 +30,19 @@ type ChangeDigest struct {
 	Categorized string
 }
 
-func New(githubToken, openAIToken string) *GitSumBot {
+type ModelVersion string
+
+const (
+	ModelVersionGPT3 ModelVersion = openai.GPT3Dot5Turbo
+	ModelVersionGPT4 ModelVersion = openai.GPT4
+)
+
+var ModelVersions = []ModelVersion{
+	ModelVersionGPT3,
+	ModelVersionGPT4,
+}
+
+func New(githubToken, openAIToken string, mv ModelVersion) *GitSumBot {
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: githubToken},
@@ -36,8 +50,9 @@ func New(githubToken, openAIToken string) *GitSumBot {
 	tc := oauth2.NewClient(ctx, ts)
 
 	return &GitSumBot{
-		gh: github.NewClient(tc),
-		ai: openai.NewClient(openAIToken),
+		gh:           github.NewClient(tc),
+		ai:           openai.NewClient(openAIToken),
+		modelVersion: mv,
 	}
 }
 
@@ -119,7 +134,7 @@ func (b *GitSumBot) summarize(ctx context.Context, messages []string) (string, e
 			TopP:             1,
 			FrequencyPenalty: 0,
 			PresencePenalty:  0,
-			Model:            openai.GPT3Dot5Turbo,
+			Model:            string(b.modelVersion),
 			Messages: []openai.ChatCompletionMessage{
 				{Role: openai.ChatMessageRoleSystem, Content: prompt},
 				{Role: openai.ChatMessageRoleUser, Content: strings.Join(exampleMessages, "\n\n")},
@@ -147,7 +162,7 @@ func (b *GitSumBot) dedupAndGroup(ctx context.Context, messages []string) (strin
 			TopP:             1,
 			FrequencyPenalty: 0,
 			PresencePenalty:  0,
-			Model:            openai.GPT3Dot5Turbo,
+			Model:            string(b.modelVersion),
 			Messages: []openai.ChatCompletionMessage{
 				{Role: openai.ChatMessageRoleSystem, Content: prompt},
 				{Role: openai.ChatMessageRoleUser, Content: strings.Join(messages, "\n")},

@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/slack-go/slack v0.12.1
 	github.com/zaibon/gitsumbot v0.1.1
+	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 )
 
 require (
