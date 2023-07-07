@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/zaibon/gitsumbot"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 )
 
 type cfg struct {
@@ -46,7 +46,8 @@ func cfgFromEnv() (*cfg, error) {
 func Run(w http.ResponseWriter, r *http.Request) {
 	cfg, err := cfgFromEnv()
 	if err != nil {
-		log.Fatalf("error while loading config: %v", err)
+		slog.ErrorCtx(r.Context(), "error while loading config: %v", err)
+		os.Exit(1)
 	}
 
 	bot := gitsumbot.New(cfg.GithubAccessToken, cfg.OpenAIAccessToken, gitsumbot.ModelVersion(cfg.GPTModelVersion))
@@ -57,7 +58,7 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cd, err := bot.ChangeDigest(ctx, cfg.GithubOwner, cfg.GithubRepo, time.Hour*24)
 	if err != nil && err != gitsumbot.ErrNoNewChanges {
-		log.Println(err)
+		slog.ErrorCtx(r.Context(), err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -67,7 +68,7 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	if err == gitsumbot.ErrNoNewChanges {
 		msg := fmt.Sprintf("No new changes in the repository %s/%s for the date %v", cfg.GithubOwner, cfg.GithubRepo, today)
 		if err := slackClient.SendChannel(ctx, cfg.SlackChannel, msg); err != nil {
-			log.Println(err)
+			slog.ErrorCtx(r.Context(), err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -82,7 +83,7 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(buf, cd.Categorized)
 
 	if err := slackClient.SendChannel(ctx, cfg.SlackChannel, buf.String()); err != nil {
-		log.Println(err)
+		slog.ErrorCtx(r.Context(), err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
