@@ -151,6 +151,37 @@ func (b *GitSumBot) summarize(ctx context.Context, messages []string) (string, e
 	return resp.Choices[0].Message.Content, nil
 }
 
+// releaseNote generate a release note based on the commit messages
+func (b *GitSumBot) releaseNote(ctx context.Context, messages []string) (string, error) {
+	prompt := `I will provide you with a list of git commit message. 
+	your role is to create a user friendly release notes based on the git commit messages.
+	Organize the release notes in sections: new features, fixes, chores, contributors.
+	if possible add a section about new contributors.
+	When mentioning users, use their github username and prefix it with @.
+	dependabot is not a contributor`
+
+	resp, err := b.ai.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Temperature:      0.6,
+			TopP:             1,
+			FrequencyPenalty: 0,
+			PresencePenalty:  0,
+			Model:            string(b.modelVersion),
+			Messages: []openai.ChatCompletionMessage{
+				{Role: openai.ChatMessageRoleSystem, Content: prompt},
+				{Role: openai.ChatMessageRoleUser, Content: fmt.Sprintf("Here are the commit messages: \n %s", strings.Join(messages, "\n\n"))},
+			},
+		},
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
 // dedupAndGroup will generate a bullet point list of commit messages group by category
 func (b *GitSumBot) dedupAndGroup(ctx context.Context, messages []string) (string, error) {
 	prompt := `Group the relates commit messages into categories and print a list of the messages inside each category`
@@ -186,6 +217,7 @@ func (b *GitSumBot) getCommitMessages(ctx context.Context, owner, repo string, d
 	now := time.Now()
 	yesterday := now.Add(-duration)
 	// todo: pagination
+
 	commits, _, err := b.gh.Repositories.ListCommits(ctx, owner, repo, &github.CommitsListOptions{
 		SHA:   *r.DefaultBranch,
 		Since: yesterday,
@@ -205,4 +237,40 @@ func (b *GitSumBot) getCommitMessages(ctx context.Context, owner, repo string, d
 	}
 
 	return messages, nil
+}
+
+func (b *GitSumBot) getCommitsBetween(ctx context.Context, owner, repo, base, head string) ([]string, error) {
+	// todo: pagination
+	compare, _, err := b.gh.Repositories.CompareCommits(ctx, owner, repo, base, head, &github.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	messages := make([]string, 0, len(compare.Commits))
+	for _, c := range compare.Commits {
+		msg := c.GetCommit().GetMessage()
+		if len(msg) > maxMsgSize {
+			msg = msg[:maxMsgSize]
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
+
+func (b *GitSumBot) tagBefore(ctx context.Context, owner, repo, tag string) (string, error) {
+	// todo: pagination
+	tags, _, err := b.gh.Repositories.ListTags(ctx, owner, repo, &github.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for i, t := range tags {
+		if t.GetName() == tag {
+			if i == len(tags)-1 {
+				return "", fmt.Errorf("tag %s is the first tag of the repository", tag)
+			}
+			return tags[i+1].GetName(), nil
+		}
+	}
+	return "", fmt.Errorf("tag %s not found", tag)
 }
