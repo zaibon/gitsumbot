@@ -1,12 +1,12 @@
 module github.com/zaibon/gitsumbot
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/google/go-github/v42 v42.0.0
 	github.com/sashabaranov/go-openai v1.41.1
-	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/oauth2 v0.31.0
+	golang.org/x/sync v0.17.0
 )
 
 require (
