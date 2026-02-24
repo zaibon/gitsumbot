@@ -1,6 +1,6 @@
 module github.com/zaibon/gitsumbot
 
-go 1.24
+go 1.26
 
 require (
 	github.com/google/go-github/v42 v42.0.0
